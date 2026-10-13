@@ -1,0 +1,144 @@
+/* analisis de caonformación de las tablas*/
+select * --selecciona todas las columnas
+from ventas_2017 --de la hoja ventas 2017
+limit 10 --lomita a 10 filas
+
+/*Explorar tabla productos_categorias*/
+SELECT * -- Seleccionar todas las columnas
+FROM productos
+LIMIT 10
+
+/* diez primeros renglones de la tabla productos_categorias
+incluyendo todas las columnas*/
+SELECT *
+FROM productos_categorias
+LIMIT 10
+
+/* primeros 10 renglones de la hoja territorios
+incluyendo todas las columnas*/
+SELECT *
+FROM territorios
+LIMIT 10
+
+/*Primeros 10 renglones de la hoja "campanas"
+incluyendo todas las columnas*/
+SELECT *
+FROM campanas
+LIMIT 10
+
+-- No olvides seleccionar todas las variables
+
+-- Usa COALESCE() para reemplazar valores nulos.
+
+-- Recuerda tendrás 3 LEFT JOIN: las tablas son ventas_2017 como v, productos como p, productos_categorias como pc y territorios como t
+select 
+v. numero_pedido, 
+v. clave_producto,
+p. nombre_producto,
+pc. clave_categoria,
+COALESCE(p. precio_producto, 0) AS precio_producto,
+COALESCE(v. cantidad_pedido, 0) AS cantidad_pedido,
+COALESCE(p. costo_producto, 0) AS costo_producto,
+t. pais,
+t. continente,
+v. clave_territorio
+FROM ventas_2017 v
+LEFT JOIN productos p
+ON v.clave_producto = p.clave_producto
+
+LEFT JOIN productos_categorias pc
+ON p. clave_subcategoria = pc. clave_subcategoria
+
+LEFT JOIN territorios t
+ON v. clave_territorio = t. clave_territorio;
+
+SELECT
+    v.numero_pedido,
+    v.clave_producto,
+    p.nombre_producto,
+    pc.clave_categoria,
+    COALESCE(p.precio_producto, 0)  AS precio_producto,
+    COALESCE(v.cantidad_pedido, 0)  AS cantidad_pedido,
+    COALESCE(p.costo_producto, 0)   AS costo_producto,
+    t.pais,
+    t.continente,
+    v.clave_territorio,
+(COALESCE(p. precio_producto, 0) * COALESCE(v. cantidad_pedido, 0)) AS ingreso_total,
+(COALESCE(p. costo_producto, 0) * COALESCE(v. cantidad_pedido, 0)) AS costo_total
+FROM ventas_2017 AS v
+LEFT JOIN productos AS p
+  ON v.clave_producto = p.clave_producto
+LEFT JOIN productos_categorias AS pc
+  ON p.clave_subcategoria = pc.clave_subcategoria
+LEFT JOIN territorios AS t
+  ON v.clave_territorio = t.clave_territorio;
+
+-- Selecciona pais y la clave del territorio
+
+-- Utiliza `::integer` para convertir el ingreso_total y costo_total a numero entero para obterner totales legibles.
+
+-- Ordena por ingresos de manera descendiente.
+select
+pais,
+clave_territorio,
+sum (ingreso_total)::integer as ingresos,
+sum (costo_total)::integer as costos
+from ventas_clean
+group by
+pais,
+clave_territorio
+order by ingresos desc
+
+SELECT
+    v.pais,
+    v.clave_territorio,
+    SUM(v.ingreso_total)::integer AS ingresos,
+    SUM(v.costo_total)::integer   AS costos,
+    (c. costo_campana)::integer
+FROM ventas_clean AS v
+LEFT JOIN campanas AS c
+  ON v.clave_territorio = c.clave_territorio::integer
+GROUP BY
+    v.pais,
+    v.clave_territorio,
+ c.costo_campana
+ORDER BY
+    ingresos DESC
+(p.costos)::integer
+sum(p.ingresos)::integer - sum (p.costos)::integer as beneficio_bruto,
+-- margen_pct = (Ingresos – Costos) / Ingresos * 100
+((sum(p.ingresos)- sum(p.costos))*100)/nullif(sum(p.ingresos),0) as margen_pct,
+-- roi_pct = Sumas (Ingresos – Costos) / CostoCampanas * 100 y usa nullif para evitar dividir entre cero
+((sum(p.ingresos)- sum(p.costos))*100)/nullif(sum(c.costo_campana),0) as roi_pct
+FROM pais_ingreso_costo AS p
+LEFT JOIN pais_campanas AS c
+  ON p.clave_territorio = c.clave_territorio
+GROUP BY
+    p.pais,
+    p.clave_territorio
+ORDER BY
+    p.clave_territorio, ingresos, costos;
+
+-- Validación simple: nulos en claves de ventas_2017
+select 
+sum(case when numero_pedido is null then 1 else 0 end),
+sum(case when clave_producto is null then 1 else 0 end),  
+sum(case when clave_territorio is null then 1 else 0 end)
+from ventas_2017
+
+-- Cuenta nulos en numero_pedido como nulos_numero_pedido, clave_producto como nulos_clave_producto , clave_territorio como nulos_clave_territorio 
+
+-- Conteo de Cantidades no válidas en ventas_2017 como filas_cantidad_no_valida
+-- Ajusta la condición según tu regla de negocio: <= 0 (no se permite cero)
+select
+count (*) as filas_cantidad_no_valida
+from ventas_2017
+where cantidad_pedido <=0
+
+-- Conteo de Cantidades no válidas en ventas_2017 como productos_precio_no_valido
+-- Usa < 0 para negativos
+select
+count (*) as productos_precio_no_valido
+from productos
+where precio_producto <=0
+
